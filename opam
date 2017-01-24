@@ -1,0 +1,18 @@
+opam-version: "1.2"
+maintainer: "Qi Li <liqi0425@gmail.com>"
+authors: ["Qi Li <liqi0425@gmail.com>"]
+homepage: "https://github.com/sevenEng/databox-storage"
+doc: "https://www.cl.cam.ac.uk/~ql272/databox-storage/doc"
+license: "ISC"
+dev-repo: "https://github.com/sevenEng/databox-storage.git"
+bug-reports: "https://github.com/sevenEng/databox-storage/issues"
+tags: []
+available: [ ocaml-version >= "4.01.0"]
+depends: [
+  "ocamlfind" {build}
+  "ocamlbuild" {build}
+  "topkg" {build} ]
+depopts: []
+build: [
+  "ocaml" "pkg/pkg.ml" "build"
+          "--pinned" pinned ]

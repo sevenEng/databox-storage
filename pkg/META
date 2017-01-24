@@ -1,0 +1,7 @@
+description = "databox's storage system component"
+version = "%%VERSION_NUM%%"
+requires = ""
+archive(byte) = "databox-storage.cma"
+archive(native) = "databox-storage.cmxa"
+plugin(byte) = "databox-storage.cma"
+plugin(native) = "databox-storage.cmxs"
