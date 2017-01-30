@@ -1,4 +1,10 @@
+PKG topkg
 PKG bytes
+PKG lwt
+PKG irmin
+PKG secure_log_lib
+
+
 S src
 S test
 B _build/**
