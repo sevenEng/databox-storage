@@ -3,7 +3,7 @@ PKG bytes
 PKG lwt
 PKG irmin
 PKG secure_log_lib
-
+PKG alcotest
 
 S src
 S test

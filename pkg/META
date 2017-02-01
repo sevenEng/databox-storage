@@ -1,6 +1,6 @@
 description = "databox's storage system component"
 version = "%%VERSION_NUM%%"
-requires = "lwt irmin secure_log_lib"
+requires = "lwt irmin secure_log_lib alcotest"
 archive(byte) = "databox-storage.cma"
 archive(native) = "databox-storage.cmxa"
 plugin(byte) = "databox-storage.cma"
