@@ -9,8 +9,8 @@ type t = {
   tp_log_store : tp_store;
 }
 
-val create :
-  key:Cstruct.t -> ?buf_size:int -> ?root:string -> unit -> t Lwt.t
+
+val create : key:Cstruct.t -> ?buf_size:int -> ?root:string -> unit -> t Lwt.t
 
 val flush_log : t -> t Lwt.t
 
@@ -18,6 +18,6 @@ val append : t -> entry_type:Cstruct.t -> Cstruct.t -> t Lwt.t
 
 val get_logs : t -> ?max:int -> unit -> Cstruct.t list Lwt.t
 
-val validate : t -> unit Lwt.t
+val is_valide : ?all:bool -> t -> bool Lwt.t
 
-val validate_macs : t -> unit Lwt.t
+val is_macs_valide : ?all:bool -> t -> bool Lwt.t

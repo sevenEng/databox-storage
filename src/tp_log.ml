@@ -91,12 +91,46 @@ let get_logs t ?(max=10) () =
   aux [] key log max (pred batch)
 
 
-let validate t =
-  let log = snd t.tp_log in
-  let entries = get_entries log in
-  return @@ validate entries
+let is_valide ?(all=false) t =
+  let batch, store = t.tp_log_store in
+  let rec validate_batches batch =
+    if batch = -1 then return_true
+    else
+      read_batch batch store >>= fun (_, log) ->
+      wrap1 validate (get_entries log) >>= fun () ->
+      validate_batches (pred batch)
+  in
+
+  let f () =
+    let log = snd t.tp_log in
+    let entries = get_entries log in
+    wrap1 validate entries >>= fun () ->
+    if all = false then return_true
+    else validate_batches (pred batch)
+  in
+  let exn = function
+    | Invalid_log -> return_false
+  in
+  catch f exn
 
 
-let validate_macs t =
-  let key, log = t.tp_log in
-  return @@ validate_macs log key
+let is_macs_valide ?(all=false) t =
+  let batch, store = t.tp_log_store in
+  let rec validate_macs_batches batch =
+    if batch = -1 then return_true
+    else
+      read_batch batch store >>= fun (key, log) ->
+      wrap2 validate_macs log key >>= fun () ->
+      validate_macs_batches (pred batch)
+  in
+
+  let f () =
+    let key, log = t.tp_log in
+    wrap2 validate_macs log key >>= fun () ->
+    if all = false then return_true
+    else validate_macs_batches (pred batch)
+  in
+  let exn = function
+    | Invalid_log -> return_false
+  in
+  catch f exn
