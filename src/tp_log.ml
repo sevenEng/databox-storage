@@ -41,7 +41,8 @@ let flush_log t =
     TP_store.update store [string_of_int batch; "key"] k >>= fun () ->
     TP_store.update store [string_of_int batch; "log"] v >>= fun () ->
 
-    let tp_log = get_key log, new_log key in
+    let key' = get_key log in
+    let tp_log = key', new_log key' in
     let tp_buffer_cnt = 0 in
     let tp_log_store = succ batch, store in
     return {t with tp_log; tp_buffer_cnt; tp_log_store}
@@ -80,12 +81,12 @@ let get_logs t ?(max=10) () =
     let len = List.length logs in
 
     if len >= cnt then
-      return @@ acc @ (cut [] cnt logs)
+      return @@ (cut [] cnt logs) @ acc
     else if batch = -1 then
-      return @@ acc @ logs
+      return @@ logs @ acc
     else
       read_batch batch store >>= fun (key, log) ->
-      aux (acc @ logs) key log (cnt - len) (pred batch)
+      aux (logs @ acc) key log (cnt - len) (pred batch)
   in
 
   aux [] key log max (pred batch)
