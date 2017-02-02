@@ -43,8 +43,9 @@ let rw () =
     |> return
   in
 
+  let expected = List.rev entries in
   let entries' = eval thrd in
-  check (list string) "r/w entries" entries entries'
+  check (list string) "r/w entries" expected entries'
 
 
 let rw_with_flush () =
@@ -60,15 +61,40 @@ let rw_with_flush () =
     |> return
   in
 
-  let expected = entries @ more_entries in
+  let expected = List.rev (entries @ more_entries) in
   let entries' = eval thrd in
   check (list string) "rw_flush entries" expected entries'
 
 
+let rw_with_flush_and_cut () =
+  let thrd =
+    (*flush happens when number of entries exceeds 3*)
+    new_log ~buf_size:3 () >>= fun l ->
+    append_list l entries >>= fun l ->
+    append_list l more_entries >>= fun l ->
+
+    get_logs ~max:5 l () >>= fun entries ->
+    entries
+    |> List.map Cstruct.to_string
+    |> return
+  in
+
+  let rec cut acc n rst =
+    if n = 0 then List.rev acc else
+      match rst with
+      | []        -> List.rev acc
+      | hd :: rst -> cut (hd :: acc) (pred n) rst
+  in
+
+  let expected = List.rev more_entries @  (List.rev entries |> cut [] 2)in
+  let entries' = eval thrd in
+  check (list string) "rw_flush_cut entries" expected entries'
+
 
 let basic_rw = [
   "rw in memory", `Slow, rw;
-  "rw with persisted entries", `Slow, rw_with_flush
+  "rw with persisted entries", `Slow, rw_with_flush;
+  "rw with persisted entries being cut", `Slow, rw_with_flush_and_cut
 ]
 
 

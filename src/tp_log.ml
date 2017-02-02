@@ -66,6 +66,7 @@ let read_batch batch store =
   return (key, log)
 
 
+(* return the most recently appended logs *)
 let get_logs t ?(max=10) () =
   let rec cut acc n rst =
     if n = 0 then List.rev acc else
@@ -77,16 +78,16 @@ let get_logs t ?(max=10) () =
   let batch, store = t.tp_log_store in
 
   let rec aux acc key log cnt batch =
-    let logs = decrypt_all log key in
+    let logs = decrypt_all log key |> List.rev in
     let len = List.length logs in
 
     if len >= cnt then
-      return @@ (cut [] cnt logs) @ acc
+      return @@ acc @ (cut [] cnt logs)
     else if batch = -1 then
-      return @@ logs @ acc
+      return @@ acc @ logs
     else
       read_batch batch store >>= fun (key, log) ->
-      aux (logs @ acc) key log (cnt - len) (pred batch)
+      aux (acc @ logs) key log (cnt - len) (pred batch)
   in
 
   aux [] key log max (pred batch)
