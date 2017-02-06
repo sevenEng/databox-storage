@@ -1,11 +1,11 @@
 true : bin_annot, safe_string, package(bytes)
 
+true : package(lwt irmin irmin.unix secure_log_lib)
+
 <src> : include
+
 <test> : include
-
-true : package(lwt irmin irmin.unix)
-
-<src/tp_log.{ml,mli}> : package(secure_log_lib)
-
 <test/*> : package(alcotest)
-<test/test_log.{ml,byte,native}> : package(secure_log_lib)
+
+<bin> : include
+<bin/*> : package(opium opium.unix astring cohttp cohttp.lwt ezjsonm)

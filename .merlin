@@ -4,6 +4,9 @@ PKG lwt
 PKG irmin
 PKG secure_log_lib
 PKG alcotest
+PKG opium
+PKG astring
+PKG ezjsonm
 
 S src
 S test
