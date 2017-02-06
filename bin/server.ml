@@ -3,22 +3,20 @@ open Opium.Std
 open Json_store
 
 
-
 module S = JSON_Store
 
 let store_handle = ref None
 
-let store_init () =
+let store_init ?log_root () =
   let config = Irmin_unix.Irmin_git.config () in
-  let key = "better get a random string?" |> Cstruct.of_string in
-  S.create ~key config >>= fun s ->
+  let log_key = "better get a random string?" |> Cstruct.of_string in
+  S.create ~log_key ?log_root config >>= fun s ->
   store_handle := Some s;
   return_unit
 
 let rec store () = match !store_handle with
   | None -> store_init () >>= store
   | Some s -> return s
-
 
 
 let headers =
@@ -45,7 +43,6 @@ let err_response err =
   let body = obj |> dict in
   let code = `Internal_server_error in
   `Json body |> respond' ~headers ~code
-
 
 
 let extract_key conv_key =
@@ -121,6 +118,42 @@ let rremove =
   end
 
 
+let logs =
+  get "/api/logs/:max" begin fun req ->
+    let max = param req "max" in
+    store () >>= fun s ->
+    let f () =
+      let max = int_of_string max in
+      S.logs s ~max () >>= fun logs ->
+      let j = Ezjsonm.strings logs in
+      `Json j |> respond' ~headers
+    in
+    catch f err_response
+  end
+
+
+let is_valide =
+  get "/api/logs/validate" begin fun req ->
+    let uri = Request.uri req in
+    let all =
+      Uri.query uri
+      |> List.assoc "all"
+      |> fun l -> try List.hd l |> bool_of_string
+                  with _ -> false
+    in
+    store () >>= fun s ->
+    let f () =
+      S.is_valide s ~all () >>= fun validity ->
+      let j = Ezjsonm.(
+        ["valide", validity |> bool;
+         "all", all |> bool]
+        |> dict)
+      in
+      `Json j |> respond' ~headers
+    in
+    catch f err_response
+  end
+
 
 let uri_conv_mw =
   let filter handler req =
@@ -159,7 +192,6 @@ let uri_conv_mw =
   Opium_rock.Middleware.create ~filter ~name:"uri converter"
 
 
-
 let opium_app =
   App.empty
   |> read
@@ -167,9 +199,15 @@ let opium_app =
   |> list
   |> remove
   |> rremove
+  |> logs
+  |> is_valide
   |> middleware uri_conv_mw
 
 
 let () =
-  Lwt_main.run (store_init ());
+  let log_root =
+    try Some (Sys.getenv "LOGROOT")
+    with Not_found -> None
+  in
+  Lwt_main.run (store_init ?log_root ());
   App.run_command opium_app
