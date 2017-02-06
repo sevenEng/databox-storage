@@ -5,13 +5,16 @@ module type S = sig
   type key
   type value
 
-  val create : ?msg:string -> key:Cstruct.t -> Irmin.config -> t Lwt.t
+  val create : ?msg:string -> ?log_root:string -> log_key:Cstruct.t -> Irmin.config -> t Lwt.t
 
   val read   : t -> ?msg:string -> key -> value Lwt.t
   val update : t -> ?msg:string -> key -> value -> unit Lwt.t
   val remove : t -> ?msg:string -> key -> unit Lwt.t
   val list   : t -> ?msg:string -> key -> key list Lwt.t
   val remove_rec : t -> ?msg:string -> key -> unit Lwt.t
+
+  val logs   : t -> ?msg:string -> ?max:int -> unit -> string list Lwt.t
+  val is_valide : t -> ?msg:string -> ?all:bool -> unit -> bool Lwt.t
   end
 
 
@@ -44,13 +47,16 @@ module Store (Base : Irmin.S) = struct
     |> Ezjsonm.to_string ~minify:true
 
 
-  let create ?msg ~key config =
+  let create ?msg ?log_root ~log_key config =
     Base.Repo.create config >>= fun repo ->
     Base.master Irmin_unix.task repo
     >>= fun data_store ->
 
-    let root = "./.log" in
-    Tp_log.create ~key ~root ()
+    let root = match log_root with
+      | None -> "/tmp/databox_log"
+      | Some r -> r
+    in
+    Tp_log.create ~key:log_key ~root ()
     >>= append_store_log "create store"
     >>= append_user_log ?msg
     >>= fun log_store ->
@@ -123,4 +129,29 @@ module Store (Base : Irmin.S) = struct
     t.log_store <- log_store;
     return_unit
 
+
+  let logs t ?msg ?(max=10) () =
+    Tp_log.get_logs t.log_store ~max () >>= fun logs ->
+
+    let store_log = "read logs with max = " ^ (string_of_int max) in
+    append_store_log store_log t.log_store
+    >>= append_user_log ?msg
+    >>= fun log_store ->
+
+    t.log_store <- log_store;
+    List.map Cstruct.to_string logs
+    |> return
+
+
+  let is_valide t ?msg ?(all=false) () =
+    Tp_log.is_valide ~all t.log_store >>= fun log_validity ->
+    Tp_log.is_macs_valide ~all t.log_store >>= fun macs_validity ->
+
+    let store_log = "check validity with all = " ^ (string_of_bool all) in
+    append_store_log store_log t.log_store
+    >>= append_user_log ?msg
+    >>= fun log_store ->
+
+    t.log_store <- log_store;
+    return (log_validity && macs_validity)
   end
