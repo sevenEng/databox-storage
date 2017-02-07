@@ -6,5 +6,5 @@ open Topkg
 let () =
   Pkg.describe "databox-storage" @@ fun c ->
   Ok [ Pkg.mllib "src/databox-storage.mllib";
-       Pkg.bin "bin/server";
+       Pkg.bin "bin/kv_store";
        Pkg.test "test/test_log"; ]
