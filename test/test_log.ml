@@ -94,11 +94,46 @@ let rw_with_flush_and_cut () =
 let basic_rw = [
   "rw in memory", `Slow, rw;
   "rw with persisted entries", `Slow, rw_with_flush;
-  "rw with persisted entries being cut", `Slow, rw_with_flush_and_cut
-]
+  "rw with persisted entries being cut", `Slow, rw_with_flush_and_cut]
+
+
+let validate_log () =
+  let thrd =
+    new_log ~buf_size:3 () >>= fun l ->
+    append_list l entries >>= fun l ->
+    append_list l more_entries >>= fun l ->
+
+    Tp_log.is_valide l >>= fun partial_valide ->
+    Tp_log.is_valide ~all:true l >>= fun all_valide ->
+    return (partial_valide && all_valide)
+  in
+  let expected = true in
+  let validity = eval thrd in
+  check bool "validity of logs" expected validity
+
+
+let validate_log_macs () =
+  let thrd =
+    new_log ~buf_size:3 () >>= fun l ->
+    append_list l entries >>= fun l ->
+    append_list l more_entries >>= fun l ->
+
+    Tp_log.is_macs_valide l >>= fun partial_valide ->
+    Tp_log.is_macs_valide ~all:true l >>= fun all_valide ->
+    return (partial_valide && all_valide)
+  in
+  let expected = true in
+  let validity = eval thrd in
+  check bool "validity of logs" expected validity
+
+
+let validity = [
+  "validate logs", `Slow, validate_log;
+  "validate log macs", `Slow, validate_log_macs]
 
 
 let () =
   run "test of tp_log" [
     "basic rw", basic_rw;
+    "log validity", validity;
   ]
