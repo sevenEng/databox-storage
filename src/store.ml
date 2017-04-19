@@ -155,3 +155,30 @@ module Store (Base : Irmin.S) = struct
     t.log_store <- log_store;
     return (log_validity && macs_validity)
   end
+
+
+
+module type JSON_STORE = S with
+    type key = Irmin.Contents.Json.Path.t and
+    type value = Irmin.Contents.Json.t
+
+module XJSON =
+  Irmin_unix.Irmin_git.Memory
+    (Irmin.Contents.Json)
+    (Irmin.Ref.String)
+    (Irmin.Hash.SHA1)
+
+module JSON_Store : JSON_STORE = Store(XJSON)
+
+
+module type BLOB_STORE = S with
+    type key = Irmin.Contents.Cstruct.Path.t and
+    type value = Irmin.Contents.Cstruct.t
+
+module XBLOB =
+  Irmin_unix.Irmin_git.Memory
+    (Irmin.Contents.Cstruct)
+    (Irmin.Ref.String)
+    (Irmin.Hash.SHA1)
+
+module Blob_Store : BLOB_STORE = Store(XBLOB)

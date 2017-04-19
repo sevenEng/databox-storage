@@ -21,3 +21,17 @@ end
 module Store (Base : Irmin.S): S
        with type key = Base.Key.t
         and type value = Base.Val.t
+
+
+module type BLOB_STORE = S with
+    type key = Irmin.Contents.Cstruct.Path.t and
+    type value = Irmin.Contents.Cstruct.t
+
+module Blob_Store : BLOB_STORE
+
+
+module type JSON_STORE = S with
+    type key = Irmin.Contents.Json.Path.t and
+    type value = Irmin.Contents.Json.t
+
+module JSON_Store : JSON_STORE
