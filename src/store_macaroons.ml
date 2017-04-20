@@ -1,5 +1,4 @@
 open Lwt
-open Opium.Std
 
 module Client   = Cohttp_lwt_unix.Client
 module Macaroon = Sodium_macaroons
@@ -64,48 +63,11 @@ let verify_method  meth caveat_str =
   let caveat_str' = String.lowercase_ascii caveat_str in
   expected = caveat_str'
 
-(* take advantage of export-service's simple API *)
-(* pretty much the same as satisfyExact *)
+
 let verify_path url caveat_str =
   let path = Uri.path url in
   let expected = "path = " ^ path in
   expected = caveat_str
-
-
-(* let verify_path url meth caveat_str =
-  try
-    let prefix_len = String.length "routes = " in
-    let prefix = String.sub caveat_str 0 prefix_len in
-
-    if not (prefix = "routes = ") then false
-    else
-    let l = String.length caveat_str in
-    let r = String.sub caveat_str prefix_len (l - prefix_len) in
-
-    let wdic = Ezjsonm.(from_string r |> value |> get_dict) in
-    let m = Cohttp.Code.string_of_method meth in
-    let wl = List.assoc m wdic in
-    let wl = Ezjsonm.(get_list get_string wl) in
-    let path = Uri.path url in
-    List.mem path wl
-  with _ ->
-    (* String.sub, Ezjsonm.from_string, List.assoc, Ezjsonm.get_list *)
-    (* throw all kinds of exceptions, TODO: logging them? *)
-    false *)
-
-
-(*TODO: check destination for ws endpoint*)
-(*let verify_destination dest caveat_str =
-  let expected = "destination = " ^ dest in
-  expected = caveat_str*)
-
-
-(*let extract_destination body =
-  Cohttp_lwt_body.to_string body >>= fun body ->
-  let open Ezjsonm in
-  let dic = from_string body |> value |> get_dict in
-  let dest = List.assoc "dest" dic in
-  return @@ get_string dest*)
 
 
 let verify macaroon key uri meth =
@@ -146,28 +108,18 @@ let extract_macaroon headers =
   with Not_found -> error_msg "deserialization problem"
 
 
-(*let extract_destination body =
-  let req_r = Export_typ.decode_request body in
-  if R.is_ok req_r then
-    let req = R.get_ok req_r in
-    let dest = Uri.to_string req.Export_typ.uri in
-    let () = Logs.debug (fun m -> m
-      "[macaroon] get %s for destination" dest) in
-    dest
-  else
-  let () = Logs.debug (fun m -> m
-    "[macaroon] get NOTHING for destination: %s decode error" body) in
-  ""*)
-
-
-let macaroon_request_checker request ~body =
+let macaroon_request_checker request =
   let uri = Cohttp.Request.uri request
   and meth = Cohttp.Request.meth request
   and headers = Cohttp.Request.headers request in
 
   let macaroon = extract_macaroon headers in
-  secret () >>= fun key ->
-
-  let r = verify macaroon key uri meth in
-
-  return (R.is_ok r && R.get_ok r)
+  if R.is_error macaroon then return R.(error (get_error macaroon))
+  else begin
+    secret () >>= fun key ->
+    if R.is_error key then return @@ R.(error (get_error key))
+    else begin
+      let r = verify macaroon key uri meth in
+      return @@ R.ok ()
+    end
+  end
