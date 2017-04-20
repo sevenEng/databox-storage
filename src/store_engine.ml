@@ -17,6 +17,7 @@ module type S = sig
   val is_valide : t -> ?msg:string -> ?all:bool -> unit -> bool Lwt.t
   end
 
+module Tp_log = Store_log
 
 module Store (Base : Irmin.S) = struct
   type t =
