@@ -1,4 +1,4 @@
-open Tp_log
+open Store_log
 open Alcotest
 open Lwt
 
@@ -103,8 +103,8 @@ let validate_log () =
     append_list l entries >>= fun l ->
     append_list l more_entries >>= fun l ->
 
-    Tp_log.is_valide l >>= fun partial_valide ->
-    Tp_log.is_valide ~all:true l >>= fun all_valide ->
+    Store_log.is_valide l >>= fun partial_valide ->
+    Store_log.is_valide ~all:true l >>= fun all_valide ->
     return (partial_valide && all_valide)
   in
   let expected = true in
@@ -118,8 +118,8 @@ let validate_log_macs () =
     append_list l entries >>= fun l ->
     append_list l more_entries >>= fun l ->
 
-    Tp_log.is_macs_valide l >>= fun partial_valide ->
-    Tp_log.is_macs_valide ~all:true l >>= fun all_valide ->
+    Store_log.is_macs_valide l >>= fun partial_valide ->
+    Store_log.is_macs_valide ~all:true l >>= fun all_valide ->
     return (partial_valide && all_valide)
   in
   let expected = true in

@@ -1,6 +1,6 @@
 open Lwt.Infix
 
-module S  = Store.JSON_Store
+module S  = Store_engine.JSON_Store
 module Ez = Ezjsonm
 module C  = Cohttp
 
@@ -31,7 +31,7 @@ let make_err_response ~status ?error () =
   resp, body
 
 
-let handler s meth ~sourceid ?action ~body =
+let handler s meth ~sourceid ?action ~body () =
   match meth with
   | `POST ->
       let data = obj_of_body body |> List.assoc "data" in

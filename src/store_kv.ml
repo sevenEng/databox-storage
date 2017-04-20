@@ -1,6 +1,6 @@
 open Lwt.Infix
 
-module S  = Store.JSON_Store
+module S  = Store_engine.JSON_Store
 module Ez = Ezjsonm
 module C  = Cohttp
 
