@@ -7,6 +7,14 @@ PKG alcotest
 PKG opium
 PKG astring
 PKG ezjsonm
+PKG depyt
+PKG rresult
+PKG macaroons
+PKG ptime
+PKG ptime.clock.os
+PKG astring
+PKG bos
+PKG conduit
 
 S src
 S test
