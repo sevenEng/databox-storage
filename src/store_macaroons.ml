@@ -123,3 +123,10 @@ let macaroon_request_checker request =
       return @@ R.ok ()
     end
   end
+
+
+let get_client_id req =
+  let headers = Cohttp.Request.headers req in
+  let open R in
+  extract_macaroon headers >>= fun m ->
+  R.ok @@ Macaroon.identifier m

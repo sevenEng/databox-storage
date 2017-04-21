@@ -15,6 +15,8 @@ module type S = sig
 
   val logs   : t -> ?msg:string -> ?max:int -> unit -> string list Lwt.t
   val is_valide : t -> ?msg:string -> ?all:bool -> unit -> bool Lwt.t
+
+  val watch_key : t -> ?msg:string -> key -> (value Irmin.diff -> unit Lwt.t) -> (unit -> unit Lwt.t) Lwt.t
 end
 
 

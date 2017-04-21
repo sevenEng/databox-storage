@@ -31,6 +31,34 @@ let make_err_response ~status ?error () =
   resp, body
 
 
+type clientid = string
+type sourceid  = string
+let watchers_tbl : (sourceid, (clientid * (string -> unit)) list) Hashtbl.t = Hashtbl.create 13
+
+
+let stopper sourceid id () =
+  let fs = try Hashtbl.find watchers_tbl sourceid with _ -> [] in
+  if not @@ List.mem_assoc id fs then Lwt.return_unit
+  else begin
+    let fs' = List.filter (fun (cid, _) -> cid <> id) fs in
+    Hashtbl.replace watchers_tbl sourceid fs';
+    Lwt.return_unit
+  end
+
+
+let sub ~sourceid ~clientid fn =
+  let fs = try Hashtbl.find watchers_tbl sourceid with _ -> [] in
+  if List.mem_assoc clientid fs then () else
+  Hashtbl.replace watchers_tbl sourceid ((clientid, fn) :: fs);
+  Lwt.return @@ stopper sourceid clientid
+
+
+let sourceid_updated ~sourceid data =
+  let fs = try Hashtbl.find watchers_tbl sourceid with _ -> [] in
+  let str = Ez.(data |> wrap |> to_string) in
+  Lwt.return @@ List.map (fun (_, f) -> f str) fs
+
+
 let handler s meth ~sourceid ?action ~body () =
   match meth with
   | `POST ->
@@ -44,6 +72,7 @@ let handler s meth ~sourceid ?action ~body () =
         ] in
       Lwt.catch (fun () ->
           S.update s key v >>= fun () ->
+          sourceid_updated ~sourceid data >>= fun _ ->
           let resp = C.Response.make ~status:`OK () in
           Lwt.return (resp, Cohttp_lwt_body.empty)) (fun exn ->
           let status = `Internal_server_error in

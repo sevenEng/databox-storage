@@ -17,6 +17,14 @@ let make_err_response ~status ?error () =
   resp, body
 
 
+let sub s ~key fn =
+  let diff_process = function
+    | `Added v | `Updated (_, v) -> Lwt.return @@ fn (Ez.to_string v)
+    | `Removed _ -> Lwt.return_unit
+  in
+  S.watch_key s [key] diff_process
+
+
 let handler s meth ~key ~body =
   match meth with
   | `GET ->

@@ -15,6 +15,9 @@ module type S = sig
 
   val logs   : t -> ?msg:string -> ?max:int -> unit -> string list Lwt.t
   val is_valide : t -> ?msg:string -> ?all:bool -> unit -> bool Lwt.t
+
+  val watch_key : t -> ?msg:string -> key -> (value Irmin.diff -> unit Lwt.t)
+    -> (unit -> unit Lwt.t) Lwt.t
   end
 
 module Tp_log = Store_log
@@ -26,6 +29,7 @@ module Store (Base : Irmin.S) = struct
     }
   type key = Base.key
   type value = Base.value
+  type 'a diff = 'a Irmin.diff
 
   let store_log = Cstruct.of_string "STORE_LOG"
   let user_log  = Cstruct.of_string "USER_LOG"
@@ -155,6 +159,24 @@ module Store (Base : Irmin.S) = struct
 
     t.log_store <- log_store;
     return (log_validity && macs_validity)
+
+
+  let watch_key t ?msg k fn =
+    let task = Printf.sprintf "watch_key for %s" (Base.Key.to_hum k) in
+    let store = t.data_store task in
+    let watcher = function
+    | `Added (_, v) -> fn (`Added v)
+    | `Updated ((_, ov), (_, nv)) -> fn (`Updated (ov, nv))
+    | `Removed (_, v) -> fn (`Removed v)
+    in
+    Base.watch_key store k watcher >>= fun stop ->
+
+    append_store_log (read_task store) t.log_store
+    >>= append_user_log ?msg
+    >>= fun log_store ->
+
+    t.log_store <- log_store;
+    return stop
   end
 
 
