@@ -15,6 +15,7 @@ PKG ptime.clock.os
 PKG astring
 PKG bos
 PKG conduit
+PKG websocket
 
 S src
 S test
