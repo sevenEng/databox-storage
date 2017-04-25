@@ -151,10 +151,10 @@ let ts_range () =
     Array.init 3 (fun inx -> `O ["data", `String (Printf.sprintf "range_data_%d" inx)])
   in
   Client.post ~headers:w_header ~body:(body_of_obj data.(0)) w_uri >>= fun _ ->
-  Lwt_unix.sleep 0.05 >>= fun () ->
+  Lwt_unix.sleep 0.1 >>= fun () ->
   let start_ts = now () in
   Client.post ~headers:w_header ~body:(body_of_obj data.(1)) w_uri >>= fun _ ->
-  Lwt_unix.sleep 0.05 >>= fun () ->
+  Lwt_unix.sleep 0.1 >>= fun () ->
   let end_ts = now () in
   Client.post ~headers:w_header ~body:(body_of_obj data.(2)) w_uri >>= fun _ ->
 
@@ -185,9 +185,48 @@ let ts_range () =
   end
 
 
+let read_and_print read () =
+  let rec aux () =
+    read () >>= fun fr ->
+    Logs_lwt.debug (fun m -> m "[test] read frame %s" (Websocket_lwt.Frame.show fr))
+    >>= aux
+  in
+  aux ()
+
+
+let ws_kv () =
+  let path = "/ws" in
+  let uri = Uri.with_path serve_uri path in
+  let extra_headers = with_mrn_header ~meth:`POST ~path in
+  let client = `TCP (`IP (Ipaddr.of_string_exn "127.0.0.1"), `Port serve_port) in
+  Websocket_lwt.with_connection ~extra_headers ~ctx:Conduit_lwt_unix.default_ctx client uri
+  >>= fun (read_fr, _) ->
+  let key = "test_ws_kv" in
+  let sub_path = "/sub/" ^ key ^ "/kv" in
+  let sub_uri = Uri.with_path serve_uri sub_path in
+  Client.post ~headers:(with_mrn_header ~meth:`POST ~path:sub_path)  sub_uri >>= fun _ ->
+
+  let obj = `O ["data", `String "ws_kv_data"] in
+  let body = body_of_obj obj in
+  let w_path = "/" ^ key ^ "/kv" in
+  let w_uri = Uri.with_path serve_uri w_path in
+  let assert_t () =
+    read_fr () >>= fun fr' ->
+    let fr = Websocket_lwt.Frame.(create ~opcode:Opcode.Text ~content:(Ez.to_string obj) ()) in
+    assert_equal fr fr' ~to_string:Websocket_lwt.Frame.show ()
+  in
+
+  Lwt.join [
+    assert_t ();
+    Client.post ~headers:(with_mrn_header ~meth:`POST ~path:w_path) ~body w_uri
+    >>= fun _ -> return_unit]
+
+
+
 let test_store () =
   let kv = "test kv store", ["rw", kv_rw] in
   let ts = "test ts store", ["latest", ts_latest; "since", ts_since; "range", ts_range] in
+  let ws = "test ws", ["ws_kv", ws_kv] in
   let success = ref true in
   let failure_cases = ref [] in
   Lwt_list.iter_s (fun (s, suit) ->
@@ -202,7 +241,7 @@ let test_store () =
               failure_cases := c :: !failure_cases;
               let f = Printexc.to_string exn in
               Logs_lwt.err (fun m -> m "[test] test case %s FAILED %s" c f))) suit >>= fun () ->
-      Logs_lwt.info (fun m -> m "[test] test suite %s ended" s)) [kv; ts]
+      Logs_lwt.info (fun m -> m "[test] test suite %s ended" s)) [kv; ts; ws]
   >>= fun () ->
   if !success then return_unit
   else begin
