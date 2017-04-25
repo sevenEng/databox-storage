@@ -23,14 +23,21 @@ let callback (kv, ts) (flow, _) req body =
   Store_macaroons.macaroon_request_checker req >>= fun mvalid ->
   let clientid = Store_macaroons.get_client_id req in
   if R.is_ok mvalid && R.is_ok clientid then
+    Logs_lwt.debug (fun m -> m "[databox-irmin] macaroon and client id OK!") >>= fun () ->
     let uri =
       C.Request.uri req
-      |> Uri.to_string
+      |> Uri.path
       |> Astring.String.cuts ~empty:false ~sep:"/"
     in
     let meth = C.Request.meth req in
     let clientid = R.get_ok clientid in
     Cohttp_lwt_body.to_string body >>= fun body ->
+    Logs_lwt.debug (fun m ->
+        m "[databox-irmin] %s %s %s (body:)%s"
+          clientid
+          (Cohttp.Code.string_of_method meth)
+          ("/" ^ String.concat "/" uri)
+          body) >>= fun () ->
     match uri with
     | ["cat"] -> Store_hypercat.handler meth body
     | [key; "kv"] -> Store_kv.handler kv meth ~key ~body

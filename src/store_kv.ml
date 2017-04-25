@@ -31,6 +31,8 @@ let handler s meth ~key ~body =
       Lwt.catch (fun () ->
           S.read s [key] >>= fun v ->
           let b = Ez.to_string v in
+
+          Logs_lwt.debug (fun m -> m "[kv] response body: %s" b) >>= fun () ->
           let body = Cohttp_lwt_body.of_string b in
           let resp = C.Response.make ~status:`OK () in
           Lwt.return (resp, body)) (fun _ ->

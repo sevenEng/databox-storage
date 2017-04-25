@@ -6,7 +6,7 @@ true : package(rresult depyt)
 true : package(macaroons.sodium)
 true : package(ptime ptime.clock.os)
 true : package(bos fpath)
-true : package(websocket)
+true : package(websocket.cohttp)
 
 <src> : include
 <test> : include

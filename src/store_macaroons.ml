@@ -4,6 +4,8 @@ module Client   = Cohttp_lwt_unix.Client
 module Macaroon = Sodium_macaroons
 module R        = Rresult.R
 
+let src = Logs.Src.create "store.macaroon"
+
 let s = ref None
 
 let get_secret () =
@@ -19,7 +21,7 @@ let get_secret () =
 
   if not @@ Cohttp.Code.is_success code then
     Cohttp_lwt_body.to_string body >>= fun err_msg ->
-    Logs_lwt.err (fun m -> m "[macaroon] no secret from arbiter: %s" err_msg)
+    Logs_lwt.err ~src (fun m -> m "[macaroon] no secret from arbiter: %s" err_msg)
     >>= fun () ->
     return_unit
   else
@@ -40,7 +42,7 @@ let secret () =
     match !s with
     | None ->
         if cnt >= repeat then return @@ R.error_msg "Can't get macaroon secret"
-        else Logs_lwt.debug (fun m -> m
+        else Logs_lwt.debug ~src (fun m -> m
           "[macaroon] try to get macaroon secret %d/%d" cnt repeat)
           >>= get_secret >>= fun () -> aux @@ succ cnt
     | Some s -> return @@ R.ok s
@@ -79,7 +81,7 @@ let verify macaroon key uri meth =
     and key      = get_ok key in
 
     let check str =
-      Logs.debug (fun m -> m "[macaroon] check for %s..." str);
+      Logs.debug ~src (fun m -> m "[macaroon] check for %s..." str);
       let f verifier = verifier str in
       let l = [
         verify_target;

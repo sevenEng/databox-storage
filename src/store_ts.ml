@@ -61,7 +61,7 @@ let sourceid_updated ~sourceid data =
 
 let handler s meth ~sourceid ?action ~body () =
   match meth with
-  | `POST ->
+  | `POST when action = None ->
       let data = obj_of_body body |> List.assoc "data" in
       let ts = now () in
       let key = [sourceid; ts] in
@@ -78,12 +78,14 @@ let handler s meth ~sourceid ?action ~body () =
           let status = `Internal_server_error in
           let error = Printexc.to_string exn in
           Lwt.return @@ make_err_response ~status ~error ())
-  | `GET ->
+  | `POST when action <> None ->
       S.list s [sourceid] >>= fun ts_lt ->
       let tss =
         List.sort Pervasives.compare ts_lt
         |> List.rev_map (fun k -> List.rev k |> List.hd)
       in
+      Logs_lwt.debug (fun m -> m "[ts] available tss: %s" (String.concat " " tss))
+      >>= fun () ->
       let to_read =
         match action with
         | Some "latest" -> (try [List.hd tss] with _ -> [])
@@ -107,6 +109,8 @@ let handler s meth ~sourceid ?action ~body () =
           let key = [sourceid; t] in
           S.read s key >|= Ez.value) to_read >>= fun vs ->
       let b = `A vs |> Ez.to_string in
+
+      Logs_lwt.debug (fun m -> m "[ts] response body: %s" b) >>= fun () ->
       let body = Cohttp_lwt_body.of_string b in
       let resp = C.Response.make ~status:`OK () in
       Lwt.return (resp, body)
