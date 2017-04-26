@@ -154,8 +154,8 @@ let ts_range () =
   Lwt_unix.sleep 0.1 >>= fun () ->
   let start_ts = now () in
   Client.post ~headers:w_header ~body:(body_of_obj data.(1)) w_uri >>= fun _ ->
-  Lwt_unix.sleep 0.1 >>= fun () ->
   let end_ts = now () in
+  Lwt_unix.sleep 0.1 >>= fun () ->
   Client.post ~headers:w_header ~body:(body_of_obj data.(2)) w_uri >>= fun _ ->
 
   let path = "/" ^ sourceid ^ "/ts/range" in
@@ -195,21 +195,24 @@ let read_and_print read () =
 
 
 let ws_kv () =
+  (* open a ws connection first *)
   let path = "/ws" in
   let uri = Uri.with_path serve_uri path in
   let extra_headers = with_mrn_header ~meth:`POST ~path in
   let client = `TCP (`IP (Ipaddr.of_string_exn "127.0.0.1"), `Port serve_port) in
   Websocket_lwt.with_connection ~extra_headers ~ctx:Conduit_lwt_unix.default_ctx client uri
-  >>= fun (read_fr, _) ->
+  >>= fun (read_fr, write_fr) ->
+
   let key = "test_ws_kv" in
+  let w_path = "/" ^ key ^ "/kv" in
+  let w_mrn = with_mrn_header ~meth:`POST ~path:w_path in
+  let w_uri = Uri.with_path serve_uri w_path in
+  let obj = `O ["data", `String "ws_kv_data"] in
+  (* sub the key *)
   let sub_path = "/sub/" ^ key ^ "/kv" in
   let sub_uri = Uri.with_path serve_uri sub_path in
   Client.post ~headers:(with_mrn_header ~meth:`POST ~path:sub_path)  sub_uri >>= fun _ ->
-
-  let obj = `O ["data", `String "ws_kv_data"] in
-  let body = body_of_obj obj in
-  let w_path = "/" ^ key ^ "/kv" in
-  let w_uri = Uri.with_path serve_uri w_path in
+  (* should get the fr from ws connection *)
   let assert_t () =
     read_fr () >>= fun fr' ->
     let fr = Websocket_lwt.Frame.(create ~opcode:Opcode.Text ~content:(Ez.to_string obj) ()) in
@@ -218,15 +221,98 @@ let ws_kv () =
 
   Lwt.join [
     assert_t ();
-    Client.post ~headers:(with_mrn_header ~meth:`POST ~path:w_path) ~body w_uri
-    >>= fun _ -> return_unit]
+    Client.post ~headers:w_mrn ~body:(body_of_obj obj) w_uri >|= fun _ -> ()]
+  >>= fun () -> Logs_lwt.debug (fun m -> m "[test] ws kv sub done")
+  >>= fun () ->
+  (* unsub the key *)
+  let unsub_path = "/unsub/" ^ key ^ "/kv" in
+  let unsub_uri = Uri.with_path serve_uri unsub_path in
+  Client.post ~headers:(with_mrn_header ~meth:`POST ~path:unsub_path) unsub_uri >>= fun _ ->
+  (* should get timeout instead of a frame*)
+  let assert_t () =
+    (read_fr () >|= fun _ -> `READ) <?> (Lwt_unix.sleep 1. >|= fun _ -> `TIMEOUT)
+    >>= fun r ->
+    let to_string = function `READ -> "READ" | `TIMEOUT -> "TIMEOUT" in
+    assert_equal `TIMEOUT r ~to_string ()
+  in
 
+  Lwt.join [
+    assert_t ();
+    Client.post ~headers:w_mrn ~body:(body_of_obj obj) w_uri >|= fun _ -> ()]
+  >>= fun () -> Logs_lwt.debug (fun m -> m "[test] ws kv unsub done")
+  >>= fun () ->
+  let fr = Websocket_lwt.Frame.(create ~opcode:Opcode.Close) () in
+  write_fr fr
+
+
+let ws_ts () =
+  (* open a ws connection first *)
+  let path = "/ws" in
+  let uri = Uri.with_path serve_uri path in
+  let extra_headers = with_mrn_header ~meth:`POST ~path in
+  let client = `TCP (`IP (Ipaddr.of_string_exn "127.0.0.1"), `Port serve_port) in
+  Websocket_lwt.with_connection ~extra_headers ~ctx:Conduit_lwt_unix.default_ctx client uri
+  >>= fun (read_fr, write_fr) ->
+
+  let sourceid = "test_ws_ts" in
+  let w_path = "/" ^ sourceid ^ "/ts" in
+  let w_mrn = with_mrn_header ~meth:`POST ~path:w_path in
+  let w_uri = Uri.with_path serve_uri w_path in
+  let obj inx = `O ["data", `String ("ws_ts_data_" ^ (string_of_int inx))] in
+  (* sub the sourceid *)
+  let sub_path = "/sub/" ^ sourceid ^ "/ts" in
+  let sub_uri = Uri.with_path serve_uri sub_path in
+  Client.post ~headers:(with_mrn_header ~meth:`POST ~path:sub_path)  sub_uri >>= fun _ ->
+  (* should get the fr from ws connection *)
+  let assert_t inx =
+    read_fr () >>= fun fr' ->
+    let obj' =
+      Ez.from_string Websocket_lwt.Frame.(fr'.content)
+      |> Ez.value
+      |> Ez.get_list Ez.get_dict
+      |> List.hd
+    in
+    let sourceid' = List.assoc "datasource_id" obj' |> Ez.get_string in
+    let data      = List.assoc "data" (Ez.get_dict (obj inx)) in
+    let data'     = List.assoc "data" obj' in
+    assert_equal sourceid sourceid' ~to_string:(fun x -> x) () >>= fun () ->
+    assert_equal data data' ~to_string:(fun v -> Ez.(wrap v |> to_string)) ()
+  in
+
+  Lwt.join [
+    assert_t 0;
+    Client.post ~headers:w_mrn ~body:(body_of_obj (obj 0)) w_uri >|= fun _ -> ()]
+  >>= fun () ->
+  Lwt.join [
+    assert_t 1;
+    Client.post ~headers:w_mrn ~body:(body_of_obj (obj 1)) w_uri >|= fun _ -> ()]
+  >>= fun () -> Logs_lwt.debug (fun m -> m "[test] ws ts sub done")
+  >>= fun () ->
+  (* unsub the key *)
+  let unsub_path = "/unsub/" ^ sourceid ^ "/ts" in
+  let unsub_uri = Uri.with_path serve_uri unsub_path in
+  Client.post ~headers:(with_mrn_header ~meth:`POST ~path:unsub_path) unsub_uri >>= fun _ ->
+  (* should get timeout instead of a frame*)
+  let assert_t () =
+    (read_fr () >|= fun _ -> `READ) <?> (Lwt_unix.sleep 1. >|= fun _ -> `TIMEOUT)
+    >>= fun r ->
+    let to_string = function `READ -> "READ" | `TIMEOUT -> "TIMEOUT" in
+    assert_equal `TIMEOUT r ~to_string ()
+  in
+
+  Lwt.join [
+    assert_t ();
+    Client.post ~headers:w_mrn ~body:(body_of_obj (obj 2)) w_uri >|= fun _ -> ()]
+  >>= fun () -> Logs_lwt.debug (fun m -> m "[test] ws ts unsub done")
+  >>= fun () ->
+  let fr = Websocket_lwt.Frame.(create ~opcode:Opcode.Close) () in
+  write_fr fr
 
 
 let test_store () =
   let kv = "test kv store", ["rw", kv_rw] in
   let ts = "test ts store", ["latest", ts_latest; "since", ts_since; "range", ts_range] in
-  let ws = "test ws", ["ws_kv", ws_kv] in
+  let ws = "test ws", ["ws_kv", ws_kv; "ws_ts", ws_ts] in
   let success = ref true in
   let failure_cases = ref [] in
   Lwt_list.iter_s (fun (s, suit) ->

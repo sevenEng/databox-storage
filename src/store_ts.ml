@@ -72,7 +72,7 @@ let handler s meth ~sourceid ?action ~body () =
         ] in
       Lwt.catch (fun () ->
           S.update s key v >>= fun () ->
-          sourceid_updated ~sourceid data >>= fun _ ->
+          sourceid_updated ~sourceid v >>= fun _ ->
           let resp = C.Response.make ~status:`OK () in
           Lwt.return (resp, Cohttp_lwt_body.empty)) (fun exn ->
           let status = `Internal_server_error in

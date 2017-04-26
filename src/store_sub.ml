@@ -58,6 +58,7 @@ let unsub id ~subject =
 
 let client_fr_recv id fr =
   let open Fr in
+  let () = Logs.debug (fun m -> m "[databox-irmin] client fr recv: %a" Fr.pp fr) in
   let push_fr = Hashtbl.find fn_tbl id in
   match fr.opcode with
   | Opcode.Ping -> push_fr @@ Some (create ~opcode:Opcode.Pong ())
