@@ -3,7 +3,6 @@ maintainer: "Qi Li <liqi0425@gmail.com>"
 authors: ["Qi Li <liqi0425@gmail.com>"]
 version: "0.1.0"
 homepage: "https://github.com/sevenEng/databox-storage"
-doc: "https://www.cl.cam.ac.uk/~ql272/databox-storage/doc"
 license: "MIT"
 dev-repo: "https://github.com/sevenEng/databox-storage.git"
 bug-reports: "https://github.com/sevenEng/databox-storage/issues"
@@ -21,6 +20,7 @@ depends: [
   "depyt"
   "cohttp"
   "websocket"
+  "secure_log_lib"
 
   "sodium"
   "macaroons"
