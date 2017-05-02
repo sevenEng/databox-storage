@@ -2,12 +2,12 @@ true : bin_annot, safe_string, package(bytes)
 
 true : package(lwt irmin irmin.unix secure_log_lib)
 
-true : package(rresult depyt)
+true : package(depyt)
 true : package(macaroons.sodium)
 true : package(ptime ptime.clock.os)
-true : package(bos fpath)
+true : package(bos fpath rresult cmdliner logs.cli)
 true : package(websocket.cohttp websocket.lwt)
 
 <src> : include
 <test> : include
-<test/*> : package(alcotest)
+<bin> : include

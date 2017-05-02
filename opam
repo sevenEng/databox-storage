@@ -20,6 +20,8 @@ depends: [
   "depyt"
   "cohttp"
   "websocket"
+  "irmin" { < "1.0.0" }
+  "irmin-unix"
   "secure_log_lib"
 
   "sodium"

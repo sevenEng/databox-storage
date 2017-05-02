@@ -1,6 +1,6 @@
 FROM alpine:3.5
 
-LABEL distro_style="apk" distro="alpine" distro_long="alpine" arch="x86_64" ocaml_version="4.04.0" opam_version="1.2" operatingsystem="linux"
+LABEL arch="x86_64" ocaml_version="4.04.0" opam_version="1.2" operatingsystem="linux"
 
 RUN apk update && apk upgrade \
  && apk add sudo \
@@ -15,19 +15,17 @@ WORKDIR /home/databox
 
 ADD . databox-irmin-store
 
-RUN sudo apk add alpine-sdk bash ncurses-dev \
+RUN sudo apk update && sudo apk upgrade \
+ && sudo apk add alpine-sdk bash ncurses-dev \
  && sudo apk add opam \
- && cd databox-irmin-store \
- && sudo chmod +x install.sh && sync
+ && cd databox-irmin-store && sudo chmod +x install.sh && sync \
+ && ./install.sh \
+ && sudo apk del opam \
+ && sudo apk del alpine-sdk bash ncurses-dev
 
-RUN cd databox-irmin-store \
- && ./install.sh
-
-# && sudo apk del alpine-sdk bash ncurses-dev \
-# && sudo apk del opam
 
 EXPOSE 8080
 
 LABEL databox.type="irmin-store"
 
-CMD ["./irmin-store"]
+CMD ["./databox-irmin-store"]
